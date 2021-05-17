@@ -18,6 +18,7 @@ public class SimpleAuthService implements AuthService {
 //            this.nickname = nickname;
 //        }
     }
+
     private List<UserData> users;
 
     public SimpleAuthService() {
@@ -66,7 +67,7 @@ public class SimpleAuthService implements AuthService {
         }
     }
 
-    private void insert(String login, String password) {
+    private void insertUser(String login, String password) {
         String sql = "INSERT INTO user(login,password) VALUES(?,?)";
         try (Connection conn = getConnection();
              PreparedStatement pstmt = conn.prepareStatement(sql)) {
@@ -96,23 +97,30 @@ public class SimpleAuthService implements AuthService {
     @Override
     public String getNicknameByLoginAndPassword(String login, String password) {
         for (UserData user : users) {
-            if (user.login.equals(login) && user.password.equals(password)) {
-                return "nickname";
-            }
+            if (user.login.equals(login) && user.password.equals(password)) return "nickname";
+//            else return "";
         }
         return null;
     }
 
     @Override
-    public boolean registration(String login, String password) {
+    public boolean registrate(String login, String password) {
+
         for (UserData user : users) {
-            if (user.login.equals(login)) {
-                return false;
-            }
+            if (user.login.equals(login)) return false;
         }
         users.add(new UserData(login, password));
-        insert(login, password);
+        insertUser(login, password);
         return true;
+    }
+
+    @Override
+    public boolean authenticate(String login, String password) {
+        for (UserData user : users) {
+            if (user.login.equals(login) && user.password.equals(password))
+                return true;
+        }
+        return false;
     }
 
 }

@@ -52,7 +52,7 @@ public class ClientNetwork {
                             }
                         });
 
-                ChannelFuture future = bootstrap.connect("localhost", 8190).sync();
+                ChannelFuture future = bootstrap.connect("localhost", 8189).sync();
                 log.info("client network started");
                 future.channel().closeFuture().sync(); //block
             } catch (Exception e) {

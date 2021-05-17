@@ -9,8 +9,10 @@ import org.apache.log4j.Logger;
 import java.io.FileNotFoundException;
 import java.io.FileOutputStream;
 import java.io.IOException;
+import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
+import java.util.stream.Collectors;
 
 public class ServerHandler extends SimpleChannelInboundHandler<Message> {
     static final Logger log = Logger.getLogger(String.valueOf(Server.class));
@@ -23,17 +25,17 @@ public class ServerHandler extends SimpleChannelInboundHandler<Message> {
     @Override
     public void channelRead0(ChannelHandlerContext ctx, Message message) throws Exception {
         if (message instanceof commandMessage) {
-            log.debug(String.format("%s: Server received command message from %s\nMessage: %s",
+            log.info(String.format("%s: Server received command message from %s\nMessage: %s",
                     getClass().getSimpleName(), ctx.channel().remoteAddress(), message));
 //            ServiceExecutor.execute(message);
 //            ctx.writeAndFlush(message);
 //        } else {
 //            ctx.fireChannelRead(message);
-            commandExc((commandMessage) message);
+            commandExc((commandMessage) message, ctx);
         }
 
         if (message instanceof dataMessage) {
-            log.debug(String.format("%s: Server received service message from %s\nMessage: %s",
+            log.info(String.format("%s: Server received service message from %s\nMessage: %s",
                     getClass().getSimpleName(), ctx.channel().remoteAddress(), message));
 //            ServiceExecutor.execute(message);
 //            ctx.writeAndFlush(message);
@@ -63,7 +65,7 @@ public class ServerHandler extends SimpleChannelInboundHandler<Message> {
 
     public static void dataExc(dataMessage message) {
         //        log.debug("received: {}", message);
-        Path p = Paths.get("./server/storage/" + message.getFileName());
+        Path p = Paths.get(Server.storagePath + message.getFileName());
 
 //        byte[] buf = message.getContent();
 //        StringBuilder st = new StringBuilder();
@@ -89,17 +91,56 @@ public class ServerHandler extends SimpleChannelInboundHandler<Message> {
 //        ctx.writeAndFlush(message); // кидаем назад
     }
 
-    private void commandExc(commandMessage message) {
+    private void commandExc(commandMessage message, ChannelHandlerContext ctx) throws IOException {
         if (message.getCommand().startsWith(Command.REG)) {
-            boolean regSuccessful = Server.getAuthService().registration(message.getLogin(), message.getPassword());
-            if (regSuccessful) {
-                log.info(Command.REG_OK);
+            if (Server.getAuthService().registrate(message.getLogin(), message.getPassword())) {
+                message.setCommand(Command.REG_OK);
+                log.info(Command.REG_OK + " " + message.getLogin());
             } else {
-                log.info(Command.REG_NO);
+                message.setCommand(Command.REG_NO);
+                message.setComment("регистрация не удалась, измените логин ");
+                log.info(Command.REG_NO + " " + message.getLogin());
             }
-
         }
 
+        if (message.getCommand().startsWith(Command.AUTH)) {
+            if (Server.getAuthService().authenticate(message.getLogin(), message.getPassword())) {
+//                if (!Server.isLoginAuthenticated(message.getLogin())) {
+//                    nickname = newNick;
+                message.setCommand(Command.AUTH_OK);
+                log.info(Command.AUTH_OK + " " + message.getLogin());
+//                    server.subscribe(this);
+//                    break;
+//                } else {
+//                    log.info("С этим логинов уже вошли");
+//                    sendMsg("С этим логинов уже вошли");
+//            }
+            } else {
+                message.setCommand(Command.AUTH_NO);
+                message.setComment("неверный логин или пароль");
+                log.info(Command.AUTH_NO + " " + message.getLogin());
+            }
+        }
+
+        if (message.getCommand().startsWith(Command.GET_FILE_LIST)) {
+            if (true) {
+                //todo добавить проверку на зарегистрированность
+//                message.setCommand(Command.REG_OK);
+                message.setComment(getServerFilesAsString());
+                log.info(Command.GET_FILE_LIST);
+            } else {
+//                message.setCommand(Command.GET_FILE_LIST);
+                message.setComment("вы не авторизованы");
+                log.info(Command.GET_FILE_LIST + " " + message.getLogin());
+            }
+        }
+
+        ctx.writeAndFlush(message); // кидаем назад
+    }
+
+    private String getServerFilesAsString() throws IOException {
+        String s = Files.list(Paths.get("server", "storage")).map(p -> p.getFileName().toString()).collect(Collectors.joining("\n"));
+        return s;
     }
 
 }

@@ -15,8 +15,8 @@ import org.apache.log4j.Logger;
 
 public class Server {
     static final Logger log = Logger.getLogger(String.valueOf(Server.class));
-//    protected static final String storagePath = "server/storage";
-    private final int port = 8190;
+    protected static final String storagePath = "server/storage";
+    private final int port = 8189;
     private static AuthService authService;
 
     public Server() {
@@ -62,6 +62,15 @@ public class Server {
 
     public static void main(String[] args) {
         new Server();
+    }
+
+    public static boolean isLoginAuthenticated(String login) {
+//        for (ClientHandler c : clients) {
+//            if (c.getLogin().equals(login)) {
+//                return true;
+//            }
+//        }
+        return false;
     }
 
 }
