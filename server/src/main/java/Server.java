@@ -15,13 +15,12 @@ import org.apache.log4j.Logger;
 
 public class Server {
     static final Logger log = Logger.getLogger(String.valueOf(Server.class));
-    protected static final String storagePath = "server/storage";
+    protected static final String storagePath = "server/storage/";
     private final int port = 8189;
     private static AuthService authService;
 
     public Server() {
         authService = new SimpleAuthService();
-//        authService.registration("rvv", "rvv", "rvv");
         EventLoopGroup auth = new NioEventLoopGroup(1);
         EventLoopGroup worker = new NioEventLoopGroup();
 

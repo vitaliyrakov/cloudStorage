@@ -24,14 +24,13 @@ public class ClientHandlerWithCallBack extends SimpleChannelInboundHandler<Messa
     @Override
     protected void channelRead0(ChannelHandlerContext ctx,
                                 Message message) throws Exception {
-        if (message instanceof commandMessage && ((commandMessage) message).getCommand().startsWith(Command.AUTH_OK)) {
-            log.info("client: "+Command.AUTH_OK);
-//            Platform.runLater(() -> responce.);
-        }
-
-        if (message instanceof commandMessage && ((commandMessage) message).getCommand().startsWith(Command.REG_OK)) {
-            log.info("client: "+Command.REG_OK);
-        }
+//        if (message instanceof commandMessage && ((commandMessage) message).getCommand().startsWith(Command.AUTH_OK)) {
+////            Platform.runLater(() -> responce.);
+//        }
+//
+//        if (message instanceof commandMessage && ((commandMessage) message).getCommand().startsWith(Command.REG_OK)) {
+////            log.info("client: "+Command.REG_OK);
+//        }
 
         callBack.call(message);
     }

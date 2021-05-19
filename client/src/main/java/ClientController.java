@@ -3,19 +3,22 @@ import javafx.event.ActionEvent;
 import javafx.fxml.FXML;
 import javafx.fxml.Initializable;
 import javafx.scene.control.*;
+import javafx.scene.control.Button;
+import javafx.scene.control.Label;
+import javafx.scene.control.TextField;
+import javafx.scene.input.MouseEvent;
+import javafx.stage.FileChooser;
 import model.Command;
 import model.commandMessage;
 import model.dataMessage;
-
-import java.io.FileInputStream;
-import java.io.IOException;
+import java.io.*;
 import java.net.URL;
 import java.nio.file.Files;
+import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.Arrays;
 import java.util.List;
 import java.util.ResourceBundle;
-import java.util.stream.Collectors;
 
 public class ClientController implements Initializable {
     private static final String clientPath = "client/clientFiles";
@@ -39,7 +42,7 @@ public class ClientController implements Initializable {
     @FXML
     public Button add;
     @FXML
-    public Button sync;
+    public Button del;
     @FXML
     public Button quit;
     @FXML
@@ -49,18 +52,8 @@ public class ClientController implements Initializable {
 
     @Override
     public void initialize(URL location, ResourceBundle resources) {
-
-        setRegView();
-
         List<String> clientFiles = null;
-//        try {
-//            clientFiles = Files.list(Paths.get(clientPath))
-//                    .map(path -> path.getFileName().toString())
-//                    .collect(Collectors.toList());
-//        } catch (IOException e) {
-//            e.printStackTrace();
-//        }
-//        listView.getItems().addAll(clientFiles);
+        setRegView();
 
         //        Thread service = new Thread(() -> {
         network = ClientNetwork.getInstance(
@@ -78,6 +71,10 @@ public class ClientController implements Initializable {
                             if ((message instanceof commandMessage) && (((commandMessage) message).getCommand().startsWith(Command.GET_FILE_LIST))) {
                                 listView.getItems().removeAll();
                                 listView.getItems().addAll(Arrays.asList(((commandMessage) message).getComment().split("\n")));
+                            } else {
+                                if (message instanceof dataMessage) {
+                                    saveFile((dataMessage) message);
+                                }
                             }
                         }
                         response.setText(msg);
@@ -109,25 +106,33 @@ public class ClientController implements Initializable {
     }
 
     @FXML
-    public void add(ActionEvent actionEvent) {
-//        FileChooser dialog = new FileChooser();
-//        dialog.setTitle("Выбор файлов");
-//        dialog.getExtensionFilters().addAll(
-//                new FileChooser.ExtensionFilter("Все файлы", "*.*")
-//        );
-//        File result = dialog.showOpenMultipleDialog(window);
-//        if (result!=null) System.out.println(result);
-//        else System.out.println("отмена");
-//
-//
+    public void add(ActionEvent actionEvent) throws IOException {
+        FileChooser dialog = new FileChooser();
+        dialog.setTitle("Выбор файлов");
+        dialog.getExtensionFilters().addAll(
+                new FileChooser.ExtensionFilter("Все файлы", "*.*")
+        );
+        File result = dialog.showOpenDialog(Client.ps);
+        if (result != null) {
+            listView.getItems().add(result.getName());
+            send(result);
+        }
     }
 
     @FXML
-    public void send(ActionEvent actionEvent) throws IOException {
+    public void del(ActionEvent actionEvent) throws IOException {
         String fileName = listView.getSelectionModel().getSelectedItem();
-        long len = Files.size(Paths.get(clientPath, fileName));
+        commandMessage cm = new commandMessage(Command.DEL_FILE, login.getText(), password.getText());
+        cm.setComment(fileName);
+        network.write(cm);
+        listView.getItems().remove(fileName);
+    }
 
-        try (FileInputStream fis2 = new FileInputStream(clientPath + "/" + fileName)) {
+    public void send(File result) throws IOException {
+        String fileName = result.getName(); //listView.getSelectionModel().getSelectedItem();
+        long len = Files.size(Paths.get(result.toString()));
+
+        try (FileInputStream fis2 = new FileInputStream(result.getAbsolutePath())) {
             int read;
             while (true) {
                 read = fis2.read(buffer);
@@ -142,15 +147,6 @@ public class ClientController implements Initializable {
 
                 dataMessage mess = new dataMessage(fileName, len);
                 mess.setContent(b2);
-
-//                byte[] buf = mess.getContent();
-//                StringBuilder st = new StringBuilder();
-//                for(int i=0; i<buf.length;i++){
-//                    st.append((char) buf[i]);
-//                }
-//                System.out.println("send: "+st);
-
-//                mess.setContent(buffer);
                 network.write(mess);
 
                 for (int i = 0; i < buffer.length; i++) {
@@ -160,7 +156,6 @@ public class ClientController implements Initializable {
         } catch (IOException e) {
             System.out.println("Ошибка чтения файла: " + fileName + " " + e);
         }
-
     }
 
     public void clearResponse() {
@@ -183,7 +178,7 @@ public class ClientController implements Initializable {
         response.setText("");
         listView.setVisible(false);
         add.setVisible(false);
-        sync.setVisible(false);
+        del.setVisible(false);
         quit.setVisible(false);
         auth.setVisible(true);
         progressBar.setVisible(false);
@@ -198,10 +193,41 @@ public class ClientController implements Initializable {
         quit.setVisible(true);
         listView.setVisible(true);
         add.setVisible(true);
-        sync.setVisible(true);
-        progressBar.setVisible(true);
-        progressIndicator.setVisible(true);
+        del.setVisible(true);
+//        progressBar.setVisible(true);
+//        progressIndicator.setVisible(true);
         network.write(new commandMessage(Command.GET_FILE_LIST, login.getText(), password.getText()));
     }
+
+    @FXML
+    public void downLoad(MouseEvent mouseEvent) throws InterruptedException {
+        commandMessage gf = new commandMessage(Command.GET_FILES, login.getText(), password.getText());
+        gf.setComment(listView.getSelectionModel().getSelectedItem());
+        network.write(gf);
+        Thread.sleep(2000);
+//        Path p = Paths.get(Client.fl + gf.getComment());
+//        try {
+//            Desktop.getDesktop().open(new File(Client.fl + gf.getComment()));
+//        } catch (IOException e) {
+//            e.printStackTrace();
+//        }
+        response.setText(gf.getComment());
+    }
+
+    public void saveFile(dataMessage mess) {
+        Path p = Paths.get(Client.fl + mess.getFileName());
+        try (FileOutputStream fos = new FileOutputStream(p.toString(), true)) {
+            fos.write(mess.getContent());
+        } catch (FileNotFoundException e) {
+            System.out.println(": " + e);
+//            log.info(": " + e);
+//            e.printStackTrace();
+        } catch (IOException e) {
+//            e.printStackTrace();
+            System.out.println(": " + e);
+//            log.info(": " + e);
+        }
+    }
+
 
 }

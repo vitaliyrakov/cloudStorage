@@ -67,7 +67,7 @@ public class ClientNetwork {
     }
 
     public void write(Message message) {
-        log.info("write: " + message.toString());
+//        log.info("write: " + message.toString());
         clientChannel.writeAndFlush(message);
     }
 }

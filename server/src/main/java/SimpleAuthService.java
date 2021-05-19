@@ -13,10 +13,6 @@ public class SimpleAuthService implements AuthService {
             this.password = password;
 
         }
-
-//        public void setNickname(String nickname) {
-//            this.nickname = nickname;
-//        }
     }
 
     private List<UserData> users;
@@ -78,21 +74,6 @@ public class SimpleAuthService implements AuthService {
             System.out.println(e.getMessage());
         }
     }
-
-//    private boolean update(String login) {
-//        String sql = "UPDATE user SET nickname = ? "
-//                + "WHERE login = ?";
-//
-//        try (Connection conn = getConnection();
-//             PreparedStatement pstmt = conn.prepareStatement(sql)) {
-//            pstmt.setString(1, nickName);
-//            pstmt.setString(2, login);
-//            pstmt.executeUpdate();
-//        } catch (SQLException e) {
-//            System.out.println(e.getMessage());
-//        }
-//        return true;
-//    }
 
     @Override
     public String getNicknameByLoginAndPassword(String login, String password) {
