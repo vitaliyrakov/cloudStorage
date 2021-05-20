@@ -39,86 +39,79 @@ public class ServerHandler extends SimpleChannelInboundHandler<Message> {
     @Override
     public void channelRead0(ChannelHandlerContext ctx, Message message) throws Exception {
         if (message instanceof commandMessage)
-            commandExc((commandMessage) message, ctx);
+            executeCommand((commandMessage) message, ctx);
         if (message instanceof dataMessage)
-            dataExc((dataMessage) message);
+            saveData((dataMessage) message);
     }
 
     @Override
     public void channelReadComplete(ChannelHandlerContext ctx) {
-//        Message mess = new Message("received: OK", 1L);
-//        ctx.write(mess);
         ctx.flush();
     }
 
-    private void commandExc(commandMessage message, ChannelHandlerContext ctx) throws IOException {
+    private void executeCommand(commandMessage message, ChannelHandlerContext ctx) throws IOException {
         if (message.getCommand().startsWith(Command.REG)) {
-            if (Server.getAuthService().registrate(message.getLogin(), message.getPassword())) {
+            if (Server.getAuthService().register(message.getLogin(), message.getPassword())) {
                 message.setCommand(Command.REG_OK);
             } else {
                 message.setCommand(Command.REG_NO);
                 message.setComment("регистрация не удалась, измените логин ");
             }
-        }
-
-        if (message.getCommand().startsWith(Command.AUTH)) {
-            if (Server.getAuthService().authenticate(message.getLogin(), message.getPassword())) {
-//                if (!Server.isLoginAuthenticated(message.getLogin())) {
-                message.setCommand(Command.AUTH_OK);
-            } else {
-                message.setCommand(Command.AUTH_NO);
-                message.setComment("неверный логин или пароль");
-            }
-        }
-
-        //todo добавить проверку на зарегистрированность
-        if (true) {
-            if (message.getCommand().startsWith(Command.GET_FILE_LIST)) {
-                message.setComment(getServerFilesAsString());
-            }
-
-            if (message.getCommand().startsWith(Command.GET_FILES)) {
-                sendFile(ctx, message.getComment());
-            }
-
-            if (message.getCommand().startsWith(Command.DEL_FILE)) {
-                delFile(message.getComment());
-            }
         } else {
-            message.setComment("вы не авторизованы");
-            log.info(message.getCommand() + " " + message.getLogin());
-        }
+            if (message.getCommand().startsWith(Command.AUTH)) {
+                if (Server.getAuthService().authenticate(message.getLogin(), message.getPassword())) {
+                    message.setCommand(Command.AUTH_OK);
+                } else {
+                    message.setCommand(Command.AUTH_NO);
+                    message.setComment("неверный логин или пароль");
+                }
+            } else {
+                if (Server.getAuthService().isLoginAuthenticated(message.getLogin())) {
+                    if (message.getCommand().startsWith(Command.GET_FILE_LIST))
+                        message.setComment(getServerFilesAsString(message.getLogin()));
 
+                    if (message.getCommand().startsWith(Command.GET_FILES))
+                        message.setCommand(sendFile(ctx, message)
+                                ? Command.GET_FILES_OK : Command.GET_FILES_NOTOK);
+
+                    if (message.getCommand().startsWith(Command.DEL_FILE))
+                        message.setCommand(delFile(message.getLogin(), message.getComment())
+                                ? Command.DEL_FILE_OK : Command.DEL_FILE_NOTOK);
+
+                    if (message.getCommand().startsWith(Command.END))
+                        message.setCommand(Server.getAuthService().exit(message.getLogin())
+                                ? Command.END_OK : Command.END_NOTOK);
+
+                } else {
+                    message.setComment("вы не авторизованы");
+                    log.info(message.getCommand() + " " + message.getLogin());
+                }
+            }
+        }
         ctx.writeAndFlush(message);
     }
 
-    private void dataExc(dataMessage message) {
-        Path p = Paths.get(Server.storagePath + message.getFileName());
+    private void saveData(dataMessage message) {
+        createDirIfNotExist(message.getLogin());
+        Path p = Paths.get(Server.storagePath, message.getLogin(), message.getFileName());
         try (FileOutputStream fos = new FileOutputStream(p.toString(), true)) {
             fos.write(message.getContent());
         } catch (FileNotFoundException e) {
-            log.info(": " + e);
+            log.error(e);
         } catch (IOException e) {
-            log.info(": " + e);
+            log.info(e);
         }
-        String s = ": " + message.getFileName() + " " + message.getFileSize();//+" "+message.getContent().length;
-//        message.setFileName("received OK");
-//        ctx.writeAndFlush(message); // кидаем назад
     }
 
-    private String getServerFilesAsString() throws IOException {
-        return Files.list(Paths.get("server", "storage")).map(p -> p.getFileName().toString()).collect(Collectors.joining("\n"));
+    private String getServerFilesAsString(String login) throws IOException {
+        createDirIfNotExist(login);
+        return Files.list(Paths.get(Server.storagePath, login)).map(p -> p.getFileName().toString()).collect(Collectors.joining("\n"));
     }
 
-    private void sendFile(ChannelHandlerContext ctx, String fileName) {
-        long len = 0;
-        try {
-            len = Files.size(Paths.get(Server.storagePath, fileName));
-        } catch (IOException e) {
-            e.printStackTrace();
-        }
-        try (
-                FileInputStream fis2 = new FileInputStream(Server.storagePath + "/" + fileName)) {
+    private boolean sendFile(ChannelHandlerContext ctx, commandMessage message) throws IOException {
+        String fileName = message.getComment();
+        long len = Files.size(Paths.get(Server.storagePath, message.getLogin(), fileName));
+        try (FileInputStream fis2 = new FileInputStream(Server.storagePath + message.getLogin() + "/" + fileName)) {
             int read;
             while (true) {
                 read = fis2.read(buffer);
@@ -137,13 +130,32 @@ public class ServerHandler extends SimpleChannelInboundHandler<Message> {
                     buffer[i] = 0;
                 }
             }
+            return true;
+
         } catch (IOException e) {
-            System.out.println("Ошибка чтения файла: " + fileName + " " + e);
+            log.error("Ошибка чтения файла: " + fileName + " " + e);
+            return false;
         }
     }
 
-    private void delFile(String comment) throws IOException {
-        Files.delete(Paths.get("server", "storage", comment));
+    private boolean delFile(String login, String fileName) {
+        try {
+            Files.delete(Paths.get(Server.storagePath, login, fileName));
+        } catch (IOException e) {
+            log.error(e);
+            return false;
+        }
+        return true;
     }
 
+    public static void createDirIfNotExist(String login) {
+        Path fdir = Paths.get(Server.storagePath, login);
+        if (Files.notExists(fdir)) {
+            try {
+                Files.createDirectory(fdir);
+            } catch (IOException e) {
+                log.error(e);
+            }
+        }
+    }
 }

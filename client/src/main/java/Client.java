@@ -8,16 +8,20 @@ import java.io.IOException;
 
 public class Client extends Application {
     static final Logger log = Logger.getLogger(String.valueOf(Client.class));
-    public static final String fl = "client/files/";
-    public static Stage ps;
+    static final String fl = "client/tmpStorage/";
+    static String login;
+    static Stage ps;
+    static String title = "CloudStorage";
 
     @Override
     public void start(Stage primaryStage) throws Exception {
         try {
             Parent root = FXMLLoader.load(getClass().getResource("client.fxml"));
-            primaryStage.setTitle("CloudStorage");
+            ps = primaryStage;
+            primaryStage.setTitle(title);
             primaryStage.setScene(new Scene(root, 400, 600));
             primaryStage.show();
+            root.requestFocus();
         } catch (IOException e) {
             log.info("Ошибка запуска сцены: " + e);
         }

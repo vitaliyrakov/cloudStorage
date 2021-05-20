@@ -1,7 +1,10 @@
 public interface AuthService {
-    String getNicknameByLoginAndPassword(String login, String password);
 
-    boolean registrate(String login, String password);
+    boolean register(String login, String password);
 
     boolean authenticate(String login, String password);
+
+    boolean isLoginAuthenticated(String login);
+
+    boolean exit(String login);
 }

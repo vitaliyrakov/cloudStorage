@@ -32,7 +32,6 @@ public class ClientNetwork {
     private ClientNetwork(CallBack c) {
         this.callBack = c;
         Thread service = new Thread(() -> {
-//        new Thread(() -> {
             EventLoopGroup group = new NioEventLoopGroup();
             try {
                 Bootstrap bootstrap = new Bootstrap();
@@ -56,18 +55,16 @@ public class ClientNetwork {
                 log.info("client network started");
                 future.channel().closeFuture().sync(); //block
             } catch (Exception e) {
-                log.info("e=", e);
+                log.error("e=", e);
             } finally {
                 group.shutdownGracefully();
             }
         });
         service.setDaemon(true);
         service.start();
-//                .start();
     }
 
     public void write(Message message) {
-//        log.info("write: " + message.toString());
         clientChannel.writeAndFlush(message);
     }
 }

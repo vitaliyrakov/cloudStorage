@@ -7,10 +7,19 @@ public class dataMessage extends Message {
     private String fileName;
     private Long fileSize;
     private byte[] content;
+    private String login;
 
     public dataMessage(String fileName, Long fileSize) {
         this.fileName = fileName;
         this.fileSize = fileSize;
+    }
+
+    public String getLogin() {
+        return login;
+    }
+
+    public void setLogin(String login) {
+        this.login = login;
     }
 
     public byte[] getContent() {

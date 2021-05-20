@@ -1,17 +1,20 @@
 
+import org.apache.log4j.Logger;
 import java.sql.*;
 import java.util.ArrayList;
 import java.util.List;
 
 public class SimpleAuthService implements AuthService {
+    static final Logger log = Logger.getLogger(String.valueOf(Server.class));
     private class UserData {
         String login;
         String password;
+        Boolean auth;
 
-        public UserData(String login, String password) {
+        public UserData(String login, String password, boolean auth) {
             this.login = login;
             this.password = password;
-
+            this.auth = auth;
         }
     }
 
@@ -46,7 +49,7 @@ public class SimpleAuthService implements AuthService {
              Statement stmt = conn.createStatement()) {
             stmt.execute(sql);
         } catch (SQLException e) {
-            System.out.println(e.getMessage());
+            log.error(e);
         }
     }
 
@@ -56,10 +59,10 @@ public class SimpleAuthService implements AuthService {
              Statement st = conn.createStatement();
              ResultSet rs = st.executeQuery(sql)) {
             while (rs.next()) {
-                users.add(new UserData(rs.getString("login"), rs.getString("password")));
+                users.add(new UserData(rs.getString("login"), rs.getString("password"),false));
             }
         } catch (SQLException e) {
-            System.out.println(e.getMessage());
+            log.error(e);
         }
     }
 
@@ -71,35 +74,48 @@ public class SimpleAuthService implements AuthService {
             pstmt.setString(2, password);
             pstmt.executeUpdate();
         } catch (SQLException e) {
-            System.out.println(e.getMessage());
+            log.error(e);
         }
     }
 
     @Override
-    public String getNicknameByLoginAndPassword(String login, String password) {
-        for (UserData user : users) {
-            if (user.login.equals(login) && user.password.equals(password)) return "nickname";
-//            else return "";
-        }
-        return null;
-    }
-
-    @Override
-    public boolean registrate(String login, String password) {
-
+    public boolean register(String login, String password) {
         for (UserData user : users) {
             if (user.login.equals(login)) return false;
         }
-        users.add(new UserData(login, password));
+        users.add(new UserData(login, password, true));
         insertUser(login, password);
+        ServerHandler.createDirIfNotExist(login);
         return true;
     }
 
     @Override
     public boolean authenticate(String login, String password) {
         for (UserData user : users) {
-            if (user.login.equals(login) && user.password.equals(password))
+            if (user.login.equals(login) && user.password.equals(password)){
+                user.auth = true;
                 return true;
+            }
+        }
+        return false;
+    }
+
+    @Override
+    public boolean isLoginAuthenticated(String login) {
+        for (UserData user : users) {
+            if (user.login.equals(login)) {
+                return user.auth;
+            }
+        }
+        return false;
+    }
+    @Override
+    public boolean exit(String login) {
+        for (UserData user : users) {
+            if (user.login.equals(login)) {
+                user.auth = false;
+                return true;
+            }
         }
         return false;
     }
